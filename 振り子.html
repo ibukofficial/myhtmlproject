@@ -1,0 +1,21 @@
+<html>
+<body>
+<script>
+let distance = Math.sqrt(
+    Math.pow(obj.x - obj.consTo.x, 2)
+    + Math.pow(obj.y - obj.consTo.y, 2)
+);
+// 計算の結果、制約から離れてしまった分を補正する
+let ratio = distance / obj.distance;
+// その時の差分を移動エネルギーとする
+let x2 = (obj.x - obj.consTo.x) / ratio + obj.consTo.x;
+let y2 = (obj.y - obj.consTo.y) / ratio + obj.consTo.y;
+obj.speedX += x2 - obj.x;
+obj.speedY += y2 - obj.y;
+obj.x = x2;
+obj.y = y2;
+</script>
+<h1>伊藤圭祐（偽名水谷ライト）作成
+<h3>参考https://qiita.com/horitaku1124/items/f45379a8f3fd011c431d
+</body>
+<html>
