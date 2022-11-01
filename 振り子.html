@@ -1,21 +1,265 @@
-<html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>物理演算</title>
+
+  <script>
+    const gravity = 0.1; // 重力加速度
+    const objects = [];
+    // 自由に動けるボール
+    class Ball {
+      constructor(x, y) {
+        this.x = x; // X座標
+        this.y = y; // Y座標
+        this.speedX = 0; // X軸の速度
+        this.speedY = 0; // Y軸の速度
+      }
+
+      paintTo(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    // 振り子の止め部分
+    class Pendulum {
+      constructor(x, y) {
+        this.x = x; // X座標
+        this.y = y; // Y座標
+      }
+
+      paintTo(ctx) {
+        ctx.beginPath();
+        ctx.rect(this.x - width, this.y - width, width * 2, width * 2);
+        ctx.stroke();
+      }
+    }
+    // 制約付きのボール
+    class ConstraintBall {
+      constructor(obj, theta, distance) {
+        this.consTo = obj;
+        this.distance = distance;
+        this.x = obj.x + Math.cos(theta) * distance; // X座標
+        this.y = obj.y + Math.sin(theta) * distance; // X座標
+        this.speedX = 0; // X軸の速度
+        this.speedY = 0; // Y軸の速度
+      }
+
+      paintTo(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, radius, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.consTo.x, this.consTo.y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+    // 傾斜
+    class Slope {
+      constructor(startX, startY, stopX, stopY) {
+        this.startX = startX;
+        this.startY = startY;
+        this.stopX = stopX;
+        this.stopY = stopY;
+
+        // 傾き
+        this.slant = (stopY - startY) / (stopX - startX);
+        // 切片
+        this.intercept = stopY - this.slant * stopX;
+      }
+      paintTo(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.startX, this.startY);
+        ctx.lineTo(this.stopX, this.stopY);
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+    let canvasHeight, canvasWidth, request;
+    const radius = 5;
+    const width = 5;
+    const Bounce = 0.5; // 反発係数
+    const PI_2 = 2 * Math.PI;
+    document.addEventListener("DOMContentLoaded", () => {
+      let canvas = document.getElementById("canvas1");
+      let ctx = canvas.getContext("2d");
+      canvasHeight = canvas.height;
+      canvasWidth = canvas.width;
+
+      objects.push(new Slope(100, 100, 200, 200));
+      objects.push(new Slope(250, 300, 400, 200));
+
+      // 毎フレームの描画処理
+      const animationFrame = () => {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvasHeight, canvasWidth);
+        ctx.fillStyle = 'black';
+        for (let i = 0;i < objects.length;i++) {
+          let obj = objects[i];
+          if (!obj) continue;
+          if (obj instanceof Pendulum)  {
+          }
+          if (obj instanceof ConstraintBall) {
+            // 重力によって加速する
+            obj.speedY += gravity;
+            // 加速された速度によって移動していく
+            obj.x += obj.speedX;
+            obj.y += obj.speedY;
+
+            let distance = Math.sqrt(
+                Math.pow(obj.x - obj.consTo.x, 2)
+                + Math.pow(obj.y - obj.consTo.y, 2)
+            );
+            // 計算の結果、制約から離れてしまった分を補正する
+            let ratio = distance / obj.distance;
+            // その時の差分を移動エネルギーとする
+            let x2 = (obj.x - obj.consTo.x) / ratio + obj.consTo.x;
+            let y2 = (obj.y - obj.consTo.y) / ratio + obj.consTo.y;
+            obj.speedX += x2 - obj.x;
+            obj.speedY += y2 - obj.y;
+            obj.x = x2;
+            obj.y = y2;
+          }
+          if (obj instanceof Ball) {
+            // 重力によって加速する
+            obj.speedY += gravity;
+            // 加速された速度によって移動していく
+            obj.x += obj.speedX;
+            obj.y += obj.speedY;
+          }
+          if (obj instanceof Ball || obj instanceof ConstraintBall) {
+            for (let j = 0;j < objects.length;j++) {
+              if (i === j) continue;
+              const obj2 = objects[j];
+              if (obj2 instanceof Pendulum) continue;
+
+              if (obj2 instanceof Ball || obj2 instanceof ConstraintBall) {
+                // 2つのオブジェクト間の距離が0以下なら衝突判定
+                let distance = Math.sqrt(Math.pow(obj.x - obj2.x, 2) + Math.pow(obj.y - obj2.y, 2)) - 2 * radius;
+                if (distance < 0) {
+                  distance = Math.abs(distance);
+                  // 2つのオブジェクトの角度
+                  const theta = Math.atan2(obj2.y - obj.y, obj2.x - obj.x);
+
+                  // オブジェクト間の直線速度を計算する
+                  const va = Math.sqrt(Math.pow(obj.speedX, 2) + Math.pow(obj.speedY, 2));
+                  const vb = -Math.sqrt(Math.pow(obj2.speedX, 2) + Math.pow(obj2.speedY, 2));
+                  // 衝突後の速度の計算
+                  const va2 = (va + vb - Bounce * va + Bounce * vb) / 2;
+                  const vb2 = (va + vb + Bounce * va - Bounce * vb) / 2;
+
+                  obj.speedX = va2 * Math.cos(theta + Math.random() * 0.001);
+                  obj.speedY = va2 * Math.sin(theta + Math.random() * 0.001);
+                  obj2.speedX = vb2 * Math.cos(theta + Math.random() * 0.001);
+                  obj2.speedY = vb2 * Math.sin(theta + Math.random() * 0.001);
+
+                  // オブジェクトがめり込んでいるので補正する
+                  obj.x -= distance * Math.cos(theta) / 2 * 1.001;
+                  obj.y -= distance * Math.sin(theta) / 2 * 1.001;
+                  obj2.x += distance * Math.cos(theta) / 2 * 1.001;
+                  obj2.y += distance * Math.sin(theta) / 2 * 1.001;
+                }
+              }
+
+              // 傾斜と衝突した場合
+              if (obj2 instanceof Slope) {
+                let x1 = obj.x;
+                let y1 = obj.y;
+                let x2 = obj.x - obj.speedX;
+                let y2 = obj.y - obj.speedY;
+                // 衝突前に線分を超えていないこと、衝突後に線分を超えていること
+                let over1 = (obj2.slant * x1 + obj2.intercept) > y1;
+                let over2 = (obj2.slant * x2 + obj2.intercept) < y2;
+                let insideX = (obj2.startX < obj.x && obj2.stopX > obj.x) || (obj2.startX > obj.x && obj2.stopX < obj.x);
+                let insideY = (obj2.startY < obj.y && obj2.stopY > obj.y) || (obj2.startY > obj.y && obj2.stopY < obj.y);
+
+                if ((over1 === over2) && insideX && insideY) {
+                  // 線分の角度
+                  let theta1 = Math.atan2(obj2.stopY - obj2.startY, obj2.stopX - obj2.startX);
+                  // ボールの進行方向
+                  let theta2 = Math.atan2(obj.speedY, obj.speedX);
+                  // 傾斜に対する垂直方向
+                  let vertical = theta1 + Math.PI / 2;
+                  // 傾斜に対する垂直との角度差分
+                  let diff = vertical - theta2;
+                  if (diff > PI_2) {
+                    diff -= PI_2;
+                  }
+                  // 傾斜にぶつかった後の角度を計算
+                  let reflect = vertical + diff + Math.PI;
+                  if (reflect > PI_2) {
+                    reflect -= PI_2;
+                  }
+                  let speed = Math.sqrt(Math.pow(obj.speedX, 2) + Math.pow(obj.speedY, 2)) * Bounce;
+                  obj.speedX = Math.cos(reflect) * speed;
+                  obj.speedY = Math.sin(reflect) * speed;
+                  obj.y = obj2.slant * x2 + obj2.intercept - radius;
+                }
+              }
+              objects[j] = obj2;
+            }
+          }
+
+          // 横の壁に当たったら進行方向を逆に
+          if (obj.x < radius) {
+            obj.x = radius;
+            obj.speedX *= -1;
+          } else if (obj.x > canvasWidth - radius) {
+            obj.x = canvasWidth - radius;
+            obj.speedX *= -1;
+          }
+
+          // 床に接触するたびに上方向に反発する。
+          if (obj.y > canvasHeight - radius) {
+            obj.y = canvasHeight - radius;
+            obj.speedY *= -0.5;
+            obj.speedX *= 0.9; // 床に接触した際の摩擦を計算
+          }
+          obj.paintTo(ctx);
+
+          objects[i] = obj;
+        }
+        request = requestAnimationFrame(animationFrame)
+      }
+
+      requestAnimationFrame(animationFrame);
+    });
+
+    function cancelAnimation() {
+      cancelAnimationFrame(request);
+    }
+    function addObject() {
+      // ランダムな位置に、ボールを追加していく
+      let ball = new Ball(Math.floor(Math.random() * canvasWidth), 0);
+      ball.speedX = Math.random() * 5 - 2.5;
+      objects.push(ball);
+      console.log(objects);
+    }
+    function addObject2() {
+      let pendulum = new Pendulum(canvasWidth / 2, 10);
+      let ball = new ConstraintBall(pendulum, 0.9, 300);
+      objects.push(pendulum);
+      objects.push(ball);
+      console.log(objects);
+    }
+
+  </script>
+</head>
 <body>
-<script>
-let distance = Math.sqrt(
-    Math.pow(obj.x - obj.consTo.x, 2)
-    + Math.pow(obj.y - obj.consTo.y, 2)
-);
-// 計算の結果、制約から離れてしまった分を補正する
-let ratio = distance / obj.distance;
-// その時の差分を移動エネルギーとする
-let x2 = (obj.x - obj.consTo.x) / ratio + obj.consTo.x;
-let y2 = (obj.y - obj.consTo.y) / ratio + obj.consTo.y;
-obj.speedX += x2 - obj.x;
-obj.speedY += y2 - obj.y;
-obj.x = x2;
-obj.y = y2;
-</script>
-<h1>（偽名水谷ライト）作成
+<canvas id="canvas1" width="400" height="400" style="border: 1px solid #aaa;"></canvas>
+<p>
+  <input type="button" value="ボール追加" onclick="addObject()">
+  <input type="button" value="振り子追加" onclick="addObject2()">
+  <input type="button" value="停止" onclick="cancelAnimation()">
+</p>
+<h3>伊吹玲作成
+
 
 </body>
-<html>
+</html>
